@@ -13,14 +13,17 @@ A simple Android app that reduces screen brightness below the system's default m
 Layout (single-module Gradle project — the `:app` module):
 
 - Native **Kotlin + Jetpack Compose** (Material 3), organized
-  **package-by-feature** under `app/src/main/java/<package>/`:
-  `data/`, `domain/{model,repository}`, `ui/{theme,components,navigation,feature/*}`,
-  `di/`. Empty layers are held by `.gitkeep` until filled in.
-- **On-device architecture** (no backend at runtime): the UI depends only on
-  repository **interfaces** in `domain/repository/`; implementations map
-  persistence ↔ domain models. `domain/**` has no Android framework imports;
-  `ui/**` never imports `data/**`. Errors cross the boundary as a sealed
-  `AppResult`, not exceptions.
+  **package-by-feature** under `app/src/main/java/com/extradim/`:
+  `data/` (persistence / repository), `di/` (manual DI container),
+  `dim/` (overlay controller + foreground service + brightness control),
+  `quick/` (Quick Settings tile + transparent toggle activity), `ui/`
+  (Compose screen, `MainViewModel`, `theme/`), plus `ExtraDimApp` /
+  `MainActivity` at the package root.
+- **On-device architecture** (no backend at runtime): the UI talks to persisted
+  state through `SettingsRepository` (DataStore) and drives the overlay via
+  `DimController` / `DimService` obtained from the `AppContainer`. The container
+  is the single wiring point — layers don't reach into each other's framework
+  types directly (e.g. `ui` touches `dim` only through the container).
 
 Stack & tooling:
 
@@ -61,71 +64,70 @@ Stack & tooling:
   (`gradlew`, `gradlew.bat`, `gradle/wrapper/gradle-wrapper.jar` +
   `.properties`) are **committed** — clone and run, no `gradle wrapper` step.
 
-## Current status (2026-08-27) — work in progress, paused
+## Current status (2026-08-27) — implemented & merged
 
-Development and device testing are currently **paused** (per user request). The
-project scaffolding + feature code is built and installs, but is **not yet
-committed** (all work is on the local `feature/init-app-project` branch; only
-the AGENTS.md + README that came through the earlier PR are on `main`).
+The full app is implemented and merged to `main` via PR #2. It builds with
+`./gradlew installDebug` and installs/runs on a physical device (tested on a
+OnePlus / Android 16, API 36, with `adb` driving the tile via
+`cmd statusbar click-tile`).
 
-### What's implemented (uncommitted on `feature/init-app-project`)
+### What's implemented
 
 - **One-page Compose UI** (`MainActivity` + `MainScreen`, `ui/MainViewModel`):
-  a brightness slider (full by default; pulling it down increases the dim
-  overlay) and a "Dimming" on/off switch.
+  a brightness slider (`1 - dimLevel`, default ~40% brightness so dim is visible
+  on first toggle) and a "Dimming" on/off switch. The ViewModel exposes
+  `dimLevel` / `enabled` as `StateFlow`s so the UI stays in sync with the tile.
 - **DataStore persistence** (`data/SettingsRepository`): stores the dim level
-  (`dim_level`, 0..1) and the enabled flag (`enabled`), so the slider position
-  and on/off state survive relaunch.
+  (`dim_level`, 0..1) and the enabled flag (`enabled`); the slider position and
+  on/off state survive relaunch. The user's slider value is preserved across
+  toggles (only the initial default seeds a visible dim).
 - **Overlay dimming** (`dim/DimController` + `dim/DimService`): a full-screen
-  black overlay window drawn by a foreground service. It sits on top of the
-  system brightness, so it works in combination with the system brightness
-  control. `DimService` applies the persisted level on both `START` and
-  `UPDATE`. Full-screen coverage incl. display cutout (pure black at the
-  darkest setting).
+  black overlay window drawn by a `specialUse` foreground service. `DimService`
+  applies the persisted level on `START` / `UPDATE` and self-stops when
+  `enabled` flips off. Full-screen coverage incl. display cutout (pure black at
+  the darkest setting).
+- **Optional deeper dimming** (`dim/BrightnessController`): when the user grants
+  `WRITE_SETTINGS`, enabling dim also pulls system brightness down to its floor
+  for an even darker result. Gracefully skipped when not granted.
 - **Quick Settings tile** (`quick/QuickDimTileService` + `quick/ToggleActivity`):
-  tap toggles dim, long-press opens the app (via the
-  `android.service.quicksettings.action.QS_TILE_PREFERENCES` intent filter on
-  `MainActivity`). The manifest's `ToggleActivity` is a transparent,
-  immediately-finishing activity used to apply the toggle from a **foreground
-  context**.
+  tap toggles dim on/off. On Android 15+ (API 35+) the service is started
+  **directly from the tile tap** (foreground-initiated), so the tile does not
+  open the app; older Android falls back to the transparent `ToggleActivity`.
+  Long-press opens the app via `QS_TILE_PREFERENCES`. The app offers an
+  **"Add to Quick Settings"** button (`StatusBarManager.requestAddTileService`,
+  API 33+) to install the tile.
 - **Manual DI** via `ExtraDimApp` → `AppContainer` (no Hilt/KSP for simplicity).
 
 ### Key design notes / why it's built this way
 
-- **Dimming below the system minimum** requires the `SYSTEM_ALERT_WINDOW`
-  ("Display over other apps") permission and a translucent overlay; you cannot
-  clamp the OS brightness below its min. User confirmed this approach.
-- **Proven bug:** on Android 12+ (target device is Android 16), starting a
-  foreground service directly from a QS tile tap throws
-  `ForegroundServiceStartNotAllowedException` (background context). Fix: the
-  tile only flips the persisted flag and launches `ToggleActivity`
-  (`startActivityAndCollapse`), which is foreground and can start `DimService`.
-  Uses the `PendingIntent` overload of `startActivityAndCollapse` on API 34+.
-- **Scope-lifecycle bug fixed:** `QuickDimTileService` previously cancelled its
-  shared `CoroutineScope` in `onStopListening`, so later `onClick` toggles
-  launched into a cancelled scope and silently no-op'd. Now uses a fresh scope
-  per listening session and a throwaway scope in `doToggle`.
+- **Dimming below the system minimum** requires `SYSTEM_ALERT_WINDOW` and a
+  translucent overlay; the OS brightness cannot be clamped below its min.
+- **QS tile on Android 12–14:** starting a foreground service from a tile tap
+  was forbidden, so the transparent `ToggleActivity` was the workaround. **On
+  Android 15+** a tile tap is a valid foreground initiation, so
+  `QuickDimTileService` now calls `DimService.start()` directly and only falls
+  back to the activity on older versions / if rejected. This is why the tile no
+  longer opens the app.
+- **Brightness value is preserved:** toggling on/off never overwrites the user's
+  slider position; only the initial default (`SettingsRepository.DEFAULT_DIM_LEVEL
+  = 0.6`) seeds a visible dim.
 - **`getApplication()` in `AndroidViewModel`:** on this Compose stack it's
-  `getApplication<ExtraDimApp>()`; `application` is private. `ExtraDimApp`
-  holds `container: AppContainer`, so access is `app.container.settingsRepository`
-  / `app.container.dimController` (the container is a property, not a receiver).
+  `getApplication<ExtraDimApp>()`; `application` is private. `ExtraDimApp` holds
+  `container: AppContainer`, so access is `app.container.settingsRepository` /
+  `app.container.dimController` (the container is a property, not a receiver).
 
-### Known issues / next steps (when development resumes)
+### Known limitations / next steps
 
-1. **Tile not yet added on the device** — `dumpsys` shows no registered QS tile
-   for `com.extradim`. The user could not test the tile because it wasn't in the
-   panel. Next step: add an "Add Quick Settings tile" button using
-   `TileService.requestAddTileService(...)` (Android 13+).
-2. **POST_NOTIFICATIONS is not granted** on the device -> the FGS notification
-   won't show (harmless to the overlay, but the ongoing char notification is
-   expected). May want to request it via the app.
-3. Slider-then-enable, minimum-darkness, and the tile toggle were **not fully
-   verified visually on-device** before pause (couldn't auto-grant the overlay
-   appop via adb; needs user grant or on-device test).
-4. `local.properties` (`sdk.dir`) is machine-local / gitignored — created
+1. **Tile must be added by the user** via the in-app "Add to Quick Settings"
+   button (or the QS editor); it is not auto-added.
+2. **Overlay permission** (`SYSTEM_ALERT_WINDOW`) must be granted by the user;
+   the app prompts for it.
+3. **Extra darkness** (`WRITE_SETTINGS`) is optional and off until the user
+   grants it; without it the overlay alone still reaches full black.
+4. **POST_NOTIFICATIONS** is optional; if not granted the FGS notification is
+   suppressed (the overlay still works).
+5. `local.properties` (`sdk.dir`) is machine-local / gitignored — created
    locally for the build, never commit.
-5. Nothing on `feature/init-app-project` is committed yet — needs a modular
-   commit + PR (per workflow) when the user resumes and approves.
 
 ## Workflow & git
 
