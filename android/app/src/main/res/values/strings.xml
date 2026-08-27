@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Extra Dim</string>
+    <!-- Quick Settings tile label. -->
+    <string name="tile_label">Extra Dim</string>
+    <!-- Service notification title (shown with the dim overlay). -->
+    <string name="dim_notification_title">Extra Dim active</string>
+    <string name="dim_notification_text">Tap to open Extra Dim</string>
+</resources>

@@ -1,0 +1,9 @@
+<resources>
+    <!-- Placeholder Activity theme. The real Material 3 theming lives in Compose
+         (ui/theme/); this only styles the window before Compose draws. -->
+    <style name="Theme.ExtraDim" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Invisible theme for ToggleActivity (Quick Settings tile apply step)
+         so the tile tap produces no visible window flash. -->
+    <style name="Theme.ExtraDim.Transparent" parent="android:Theme.Translucent.NoTitleBar" />
+</resources>
