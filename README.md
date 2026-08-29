@@ -10,7 +10,6 @@ Android only lets you dim the screen down to a fixed system minimum brightness. 
 
 - **Dim below the system minimum** with a brightness slider (full by default; drag down to dim further, all the way to pure black).
 - **Quick Settings tile** to toggle dimming on/off with one tap.
-- **Extra-darkness option** that also lowers the device's system brightness floor (requires the "modify system settings" permission).
 - **Simple, single-purpose UI** — no bloat.
 
 ## Quick start

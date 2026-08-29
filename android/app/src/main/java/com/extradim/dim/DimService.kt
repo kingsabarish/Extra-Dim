@@ -54,7 +54,6 @@ class DimService : Service() {
 
         if (action == ACTION_STOP) {
             app.container.dimController.clear()
-            app.container.brightnessController.restore()
             stopSelf()
             return START_NOT_STICKY
         }
@@ -66,11 +65,6 @@ class DimService : Service() {
             applyPersistedLevel()
             ensureForeground()
             startObserving()
-            // On a fresh start, also pull the system brightness down so the
-            // overlay has a darker base to work on ("dim even more").
-            if (action == ACTION_START) {
-                app.container.brightnessController.lowerToFloor()
-            }
         }
 
         return START_STICKY
@@ -86,7 +80,6 @@ class DimService : Service() {
 
     override fun onDestroy() {
         app.container.dimController.clear()
-        app.container.brightnessController.restore()
         observeJob?.cancel()
         scope.cancel()
         super.onDestroy()

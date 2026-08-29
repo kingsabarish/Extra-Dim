@@ -38,25 +38,16 @@ class MainActivity : ComponentActivity() {
             // Permission state is refreshed on resume.
         }
 
-    private val writeSettingsLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            // Write-settings state is refreshed on resume.
-        }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             var overlayPermissionGranted by remember { mutableStateOf(Settings.canDrawOverlays(this)) }
-            var writeBrightnessGranted by remember {
-                mutableStateOf(Settings.System.canWrite(this))
-            }
 
             val lifecycleOwner = LocalLifecycleOwner.current
             DisposableEffect(lifecycleOwner) {
                 val observer = LifecycleEventObserver { _, event ->
                     if (event == Lifecycle.Event.ON_RESUME) {
                         overlayPermissionGranted = Settings.canDrawOverlays(this@MainActivity)
-                        writeBrightnessGranted = Settings.System.canWrite(this@MainActivity)
                     }
                 }
                 lifecycleOwner.lifecycle.addObserver(observer)
@@ -70,7 +61,6 @@ class MainActivity : ComponentActivity() {
                 dimLevel = dimLevel,
                 enabled = enabled,
                 overlayPermissionGranted = overlayPermissionGranted,
-                canLowerSystemBrightness = writeBrightnessGranted,
                 onDimLevelChanged = viewModel::onSliderChanged,
                 onEnabledChanged = viewModel::setEnabled,
                 onRequestOverlayPermission = {
@@ -79,13 +69,6 @@ class MainActivity : ComponentActivity() {
                             Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                             Uri.parse("package:$packageName"),
                         ),
-                    )
-                },
-                onRequestBrightnessPermission = {
-                    writeSettingsLauncher.launch(
-                        Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
-                            data = Uri.parse("package:$packageName")
-                        },
                     )
                 },
                 onAddToQuickSettings = { addQuickSettingsTile() },
