@@ -10,12 +10,6 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Optional: lets Extra Dim also lower system brightness for an even darker
-         result. Granted by the user via ACTION_MANAGE_WRITE_SETTINGS. -->
-    <uses-permission
-        android:name="android.permission.WRITE_SETTINGS"
-        tools:ignore="ProtectedPermissions" />
-
     <application
         android:name=".ExtraDimApp"
         android:allowBackup="true"

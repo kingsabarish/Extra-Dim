@@ -37,11 +37,9 @@ fun MainScreen(
     dimLevel: Float,
     enabled: Boolean,
     overlayPermissionGranted: Boolean,
-    canLowerSystemBrightness: Boolean,
     onDimLevelChanged: (Float) -> Unit,
     onEnabledChanged: (Boolean) -> Unit,
     onRequestOverlayPermission: () -> Unit,
-    onRequestBrightnessPermission: () -> Unit,
     onAddToQuickSettings: () -> Unit,
 ) {
     ExtraDimTheme {
@@ -106,24 +104,6 @@ fun MainScreen(
                 modifier = Modifier.align(Alignment.CenterHorizontally),
             ) {
                 Text("Add to Quick Settings")
-            }
-
-            if (enabled && !canLowerSystemBrightness) {
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    text = "Allow \"modify system settings\" for even darker dimming that also lowers the screen brightness.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.height(12.dp))
-                Button(
-                    onClick = onRequestBrightnessPermission,
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                ) {
-                    Text("Allow extra darkness")
-                }
             }
 
             if (!overlayPermissionGranted) {
