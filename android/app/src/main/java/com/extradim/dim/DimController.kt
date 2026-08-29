@@ -65,25 +65,45 @@ class DimController(
             isClickable = false
             isFocusable = false
             isFocusableInTouchMode = false
+            // Ensure view itself does not consume insets.
+            fitsSystemWindows = false
         }
 
+        // FLAG_LAYOUT_INSET_DECOR ensures the window decor is laid out under
+        // system bars; FLAG_NOT_TOUCH_MODAL prevents touch modal clipping.
+        // Together with LAYOUT_IN_SCREEN + LAYOUT_NO_LIMITS the window spans
+        // the full display including the navigation bar (which was previously
+        // left bright on some devices/modes).
+        val flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+            WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR
+
         val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            flags,
             PixelFormat.TRANSLUCENT,
         )
         params.gravity = Gravity.TOP or Gravity.START
-        params.width = WindowManager.LayoutParams.MATCH_PARENT
-        params.height = WindowManager.LayoutParams.MATCH_PARENT
 
-        // Cover the full screen including the display cutout / system bars so
-        // the darkest setting is truly black edge to edge.
+        // On Android 11+ the window would otherwise be inset to avoid the
+        // navigation / status bars. Disabling insets guarantees edge-to-edge
+        // coverage including the navigation bar.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            params.fitInsetsTypes = 0
+            @Suppress("DEPRECATION")
+            params.fitInsetsSides = 0
+        }
+
+        // Cover the full screen including the display cutout so the darkest
+        // setting is truly black edge to edge.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             params.layoutInDisplayCutoutMode =
-                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
 
         windowManager.addView(view, params)
