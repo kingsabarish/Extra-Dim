@@ -15,7 +15,7 @@ Layout (single-module Gradle project — the `:app` module):
 - Native **Kotlin + Jetpack Compose** (Material 3), organized
   **package-by-feature** under `app/src/main/java/com/extradim/`:
   `data/` (persistence / repository), `di/` (manual DI container),
-  `dim/` (overlay controller + foreground service + brightness control),
+  `dim/` (overlay controller + foreground service),
   `quick/` (Quick Settings tile + transparent toggle activity), `ui/`
   (Compose screen, `MainViewModel`, `theme/`), plus `ExtraDimApp` /
   `MainActivity` at the package root.
@@ -86,9 +86,10 @@ OnePlus / Android 16, API 36, with `adb` driving the tile via
   applies the persisted level on `START` / `UPDATE` and self-stops when
   `enabled` flips off. Full-screen coverage incl. display cutout (pure black at
   the darkest setting).
-- **Optional deeper dimming** (`dim/BrightnessController`): when the user grants
-  `WRITE_SETTINGS`, enabling dim also pulls system brightness down to its floor
-  for an even darker result. Gracefully skipped when not granted.
+- **Overlay-only dimming to preserve auto-brightness:** Dimming is purely
+  overlay-based without touching system brightness (`WRITE_SETTINGS` is not
+  used), so device auto-brightness is not disturbed. Full-screen coverage
+  includes the navigation bar and display cutout.
 - **Quick Settings tile** (`quick/QuickDimTileService` + `quick/ToggleActivity`):
   tap toggles dim on/off. On Android 15+ (API 35+) the service is started
   **directly from the tile tap** (foreground-initiated), so the tile does not
@@ -122,11 +123,9 @@ OnePlus / Android 16, API 36, with `adb` driving the tile via
    button (or the QS editor); it is not auto-added.
 2. **Overlay permission** (`SYSTEM_ALERT_WINDOW`) must be granted by the user;
    the app prompts for it.
-3. **Extra darkness** (`WRITE_SETTINGS`) is optional and off until the user
-   grants it; without it the overlay alone still reaches full black.
-4. **POST_NOTIFICATIONS** is optional; if not granted the FGS notification is
+3. **POST_NOTIFICATIONS** is optional; if not granted the FGS notification is
    suppressed (the overlay still works).
-5. `local.properties` (`sdk.dir`) is machine-local / gitignored — created
+4. `local.properties` (`sdk.dir`) is machine-local / gitignored — created
    locally for the build, never commit.
 
 ## Workflow & git
